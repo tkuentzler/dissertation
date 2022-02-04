@@ -1,0 +1,388 @@
+---
+title: "Replication File Chapter 3"
+author: "Theresa Küntzler"
+date: "25 11 2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Packages and Data Preparation
+## Packages
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+library(brms)
+library(data.table)
+library(matrixStats)
+
+base_folder <- "../data/"
+```
+
+## Load data and Remove Subjects who know the Actor
+```{r}
+load(file = paste0(base_folder, "subjects_with_emotions_2.Rda"))
+#(with subjects who know actor name removed)
+load(file = paste0(base_folder, "subjetcs_by_group_no_know_sp.Rda")) 
+# one observation: one response time to the four question pages and left-right 
+# and feeling therm
+load(file = paste0(base_folder, "subjects_rsp.Rda")) 
+
+# table(subjects$know_name_schauspieler)
+# remove those from the subjects
+subjects <- dplyr::filter(subjects, is.na(know_name_schauspieler))
+
+# remove the same subjects from the rsp_dataset
+subjects_rsp <- dplyr::filter(subjects_rsp, subjects_rsp$id %in% subjects$id)
+```
+
+## Additional Data Prep
+```{r}
+# make female dummy (only male and female is used from the gender options):
+# gender: 1:weiblich, 2: männlich, 3: divers, 4: keine Angabe
+# female: 1 = female, 0 = male
+subjects$female <- ifelse(subjects$gender==1, 1, 0)
+
+# Make neutral group the baseline for the emo_char_factor
+subjects <- within(subjects, 
+                   emotion_group_char_neutral_base <- relevel(
+                     as.factor(emotion_group_char), ref = "neutral"))
+```
+
+# Treatment Videos on Emotional Reaction of the Subjects (I -> II)
+## Emotion Self-Reports by Treatment Group
+```{r}
+# Scales
+summary(lm(aversion ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(fear ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(enthusiasm ~ emotion_group_char_neutral_base, data = subjects))
+
+# Scalte Items
+summary(lm(fear_aengstlich/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(fear_besorgnis/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(fear_beunruhigung/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(aversion_wut/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(aversion_hass/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(aversion_zorn/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(aversion_aufgebracht/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(enthusiasm_hoffnung/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(enthusiasm_stolz/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(enthusiasm_enthusiastisch/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(fear ~ emotion_group_char_neutral_base, data = subjects)) 
+summary(lm(aversion ~ emotion_group_char_neutral_base, data = subjects)) 
+summary(lm(enthusiasm ~ emotion_group_char_neutral_base, data = subjects))
+```
+
+## Emotions in Facial Expressions by Treatment Group
+```{r}
+# Anger
+summary(lm(emo_anger_mean ~ emotion_group_char_neutral_base, 
+           data = subjects))
+# Fear/Surprise
+# add fear and surprise
+subjects$emo_fear_surp_mean <- subjects$emo_fear_mean + 
+  subjects$emo_surprise_mean
+summary(lm(emo_fear_surp_mean ~ emotion_group_char_neutral_base, 
+           data = subjects))
+```
+
+## Subjects’ Expressions of Anger (Model (3.1))
+```{r}
+# this loads the model; if you wish to run it: change the filename
+anger_mean_brm <- brm(anger_mean ~ 
+                        fear_surp_mean_sp + anger_mean_sp + 
+                        fear_surp_mean_sp_l2 + anger_mean_sp_l2 + 
+                        (1|video_name) + (1|id),
+                           data = emo_face_time,
+                           control = list(adapt_delta = 0.99),
+                           iter = 30000,
+                      thin = 3,
+                      file = paste0(base_folder, "anger_mean_brm"))
+
+summary(anger_mean_brm)
+# plot(anger_mean_brm)
+rm(anger_mean_brm)
+```
+
+## Subjects’ Expressions of Fear/ Surprise (Model (3.2))
+```{r}
+# this loads the model; if you wish to run it: change the filename
+fear_surp_mean_brm <- brm(fear_surp_mean ~ 
+                            fear_surp_mean_sp + anger_mean_sp + 
+                            fear_surp_mean_sp_l2 + anger_mean_sp_l2 + 
+                            (1|video_name) + (1|id),
+                  data = emo_face_time,
+                  control = list(adapt_delta = 0.99),
+                  iter = 30000,
+                  thin = 3,
+                  file = paste0(base_folder, "fear_surp_mean_brm"))
+
+summary(fear_surp_mean_brm)
+#plot(fear_surp_mean_brm)
+rm(fear_surp_mean_brm)
+```
+
+# Emotional Reaction on Operating System (II -> III)
+## Subjects’ Emotion Self-Reports on Response Time (Model (3.3))
+```{r}
+# remove single outlier response time
+subjects_rsp <- subjects_rsp[subjects_rsp$response_time<=100,]
+
+# add the emo_self_report info to subjects_rsp
+subjects_rsp <- left_join(
+  x = subjects_rsp,
+  y = subjects[,c("fear", "aversion", "enthusiasm", "id", "female", "auth")],
+  by = "id"
+)
+
+# Model
+# this loads the model; if you wish to run it: change the filename
+rsp_emo_sr_brm <- brm(
+  formula = response_time ~ 
+    fear + aversion + enthusiasm + (1|id) + female + auth,
+  data = subjects_rsp,
+  family = shifted_lognormal(),
+  file = paste0(base_folder, "rsp_emo_sr_brm_female_auth")
+  ) 
+
+summary(rsp_emo_sr_brm)
+#plot(rsp_emo_sr_brm)
+rm(rsp_emo_sr_brm)
+```
+
+# Operating System on Political Attitude (III -> IV)
+```{r}
+# calculate response time means
+subjects_rsp_mean <- subjects_rsp %>%
+  group_by(id) %>%
+  summarise(response_time_mean = mean(response_time))
+
+# add response time means to the subjects data
+subjects <- left_join(x = subjects, y = subjects_rsp_mean)
+
+# OLS populism on response time, with controls
+summary(lm(pop ~ response_time_mean + auth + female, data = subjects))
+summary(lm(pop_buergerwillen ~ response_time_mean + auth  + female, 
+           data = subjects))
+summary(lm(pop_entscheidungen ~ response_time_mean + auth  + female, 
+           data = subjects))
+summary(lm(pop_unterschiede ~ response_time_mean + auth  + female, 
+           data = subjects))
+summary(lm(pop_buergervertreter ~ response_time_mean + auth  + female, 
+           data = subjects))
+summary(lm(pop_reden ~ response_time_mean + auth  + female, data = subjects)) 
+summary(lm(pop_kompromiss ~ response_time_mean + auth  + female, 
+           data = subjects))
+
+summary(lm(left_right_dist ~ response_time_mean + auth + female, data = subjects))
+summary(lm(left_right ~ response_time_mean + auth + female, data = subjects)) 
+```
+
+# Populism and Left-Right Self-Placement on Emotion Self-Reports (II -> IV)
+```{r}
+summary(lm(pop ~ aversion + fear + enthusiasm + auth + female, data = subjects))
+
+summary(lm(pop_buergerwillen ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+summary(lm(pop_entscheidungen ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+summary(lm(pop_unterschiede ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+summary(lm(pop_buergervertreter ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+summary(lm(pop_reden ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+summary(lm(pop_kompromiss ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+
+summary(lm(left_right_dist ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+summary(lm(left_right ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+```
+
+# Appendix: Additional Results
+## Balance Tests
+```{r}
+# Table: Female, Authoritarianism, Age and Actor Knowledge on Treatment Groups
+summary(lm(female ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(auth ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(age ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(know_politician_schauspieler ~ emotion_group_char_neutral_base, data = subjects))
+```
+
+## Treatment Check
+```{r}
+# Table: Opinion, Competence & Sympathy on Treatment Groups
+summary(lm(opinion_schauspieler ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(competence_schauspieler ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(sympathy_schauspieler ~ emotion_group_char_neutral_base, 
+           data = subjects))
+```
+
+## Subjects’ Emotions
+```{r}
+# Table: Emotion Self-Reports on Treatment Groups
+# scale Means
+summary(lm(aversion ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(fear ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(enthusiasm ~ emotion_group_char_neutral_base, data = subjects))
+
+# Scale Items
+summary(lm(fear_aengstlich/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(fear_besorgnis/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(fear_beunruhigung/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(aversion_wut/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(aversion_hass/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(aversion_zorn/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(aversion_aufgebracht/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(enthusiasm_hoffnung/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(enthusiasm_stolz/100 ~ emotion_group_char_neutral_base, 
+           data = subjects)) 
+summary(lm(enthusiasm_enthusiastisch/100 ~ emotion_group_char_neutral_base, 
+           data = subjects))
+```
+
+```{r}
+# Table: Facial Expressions on Treatment Groups : see above: 
+# Emotion Self-Reports by Treatment Group
+
+```
+
+## Response Times (Model B.1)
+```{r}
+# this loads the model; if you wish to run it: change the filename
+rsp_times_treatment_brm <- brm(
+  response_time ~ question_order_2 + (1|question_type) + (1|emotion_group_char),
+  data = subjects_rsp,
+  family = shifted_lognormal(),
+  control = list(adapt_delta = 0.99),
+  file = paste0(base_folder, "rsp_times_brm"))
+
+summary(rsp_times_treatment_brm)
+#plot(rsp_times_treatment_brm)
+rm(rsp_times_treatment_brm)
+```
+
+## Political Attitude
+```{r}
+# Table: Post Treatment Feeling Thermometer and Left-Right Self-Placement Scores
+# on Treatment Groups
+
+# post treatment feeling thermometer ~ treatment group
+# only those with feeling thermometer after the treatment
+summary(lm(feel_cdu ~ emotion_group_char_neutral_base, 
+           data = subjects[subjects$feeling_first==0,]))
+summary(lm(feel_csu ~ emotion_group_char_neutral_base, 
+           data = subjects[subjects$feeling_first==0,]))
+summary(lm(feel_afd ~ emotion_group_char_neutral_base,
+           data = subjects[subjects$feeling_first==0,]))
+summary(lm(feel_spd ~ emotion_group_char_neutral_base,
+           data = subjects[subjects$feeling_first==0,]))
+summary(lm(feel_gruene ~ emotion_group_char_neutral_base, 
+           data = subjects[subjects$feeling_first==0,]))
+summary(lm(feel_linke ~ emotion_group_char_neutral_base, 
+           data = subjects[subjects$feeling_first==0,]))
+
+
+# Post Treatment - Left- Right
+# only those with left-right after the treatment
+summary(lm(left_right ~ emotion_group_char_neutral_base, 
+           data = subjects[subjects$feeling_first==1,]))
+summary(lm(left_right_dist ~ emotion_group_char_neutral_base, 
+           data = subjects[subjects$feeling_first==1,]))
+```
+
+```{r}
+# Table: Populism, Elitism & Pluralism on Treatment Groups
+
+# Populism
+summary(lm(pop ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(pop_buergerwillen ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(pop_entscheidungen ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(pop_unterschiede ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(pop_buergervertreter ~ emotion_group_char_neutral_base, 
+           data = subjects))
+summary(lm(pop_reden ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(pop_kompromiss ~ emotion_group_char_neutral_base, data = subjects))
+
+# Elitism
+summary(lm(eli ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(eli_anfuehren ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(eli_unternehmer ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(eli_experten ~ emotion_group_char_neutral_base, data = subjects)) 
+summary(lm(eli_kampf ~ emotion_group_char_neutral_base, data = subjects)) 
+
+# Pluralism
+summary(lm(plu ~ emotion_group_char_neutral_base, data = subjects)) 
+summary(lm(plu_kompromiss ~ emotion_group_char_neutral_base, data = subjects))
+summary(lm(plu_meinungen ~ emotion_group_char_neutral_base, data = subjects))
+```
+
+```{r}
+# Table: Elitism & Pluralism on Response Time
+
+# Scale Means
+summary(lm(eli ~ response_time_mean + auth + female, data = subjects))
+summary(lm(plu ~ response_time_mean + auth + female, data = subjects))
+
+# Scale Items
+summary(lm(eli_anfuehren ~ response_time_mean + auth  + female,
+           data = subjects))
+summary(lm(eli_unternehmer ~ response_time_mean + auth  + female, 
+           data = subjects))
+summary(lm(eli_experten ~ response_time_mean + auth  + female, data = subjects)) 
+summary(lm(eli_kampf ~ response_time_mean + auth  + female, data = subjects))
+
+summary(lm(plu_kompromiss ~ response_time_mean + auth + female, 
+           data = subjects))
+summary(lm(plu_meinungen ~ response_time_mean + auth+ female, data = subjects))
+
+```
+
+```{r}
+# Table: Elitism & Pluralism on Emotion Self-Reports
+
+# Scale Means
+summary(lm(eli ~ aversion + fear + enthusiasm + auth + female, data = subjects))
+summary(lm(plu ~ aversion + fear + enthusiasm + auth + female, data = subjects))
+
+# Scale Items
+summary(lm(eli ~ aversion + fear + enthusiasm + auth + female, data = subjects))
+summary(lm(eli_anfuehren ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+summary(lm(eli_unternehmer ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+summary(lm(eli_experten ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+summary(lm(eli_kampf ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+
+summary(lm(plu_kompromiss ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects)) 
+summary(lm(plu_meinungen ~ aversion + fear + enthusiasm + auth + female, 
+           data = subjects))
+```
+
