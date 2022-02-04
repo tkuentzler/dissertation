@@ -1,0 +1,143 @@
+---
+title: "Replication File Chapter 4"
+author: "Theresa Küntzler"
+date: "19 01 2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Packages and Data Preparation
+## Packages
+```{r message=FALSE, warning=FALSE}
+library(brms)
+library(dplyr)
+
+# run the following for two lines parallel estimation of brms models
+# library(parallel)
+# options(mc.cores = parallel::detectCores())
+
+data_paper3_gles <- "../data/"
+
+# load the data
+# selected and clean variables from the original data, one subject is 
+# one observation
+load(file = paste0(data_paper3_gles, "befragung_selection.Rda")) 
+# long dataframe whith one subject-politican combination is one observation; 
+# used to estimate the models
+load(file = paste0(data_paper3_gles, "befragung_per_candidate.Rda"))
+```
+
+
+# Model 4.1: All Politicians
+```{r}
+# This code load the brms-object reported in the Dissertation. If you wish to 
+# estimate the model again, either change or remove the filenname under the 
+# `file = ' argument or run the code in comments below.
+symp_brm_post_pos5 <- brm(
+  symp_post_positive ~ 
+    (1|symp_pre_positive + age_decades + a145 + match_id) + 
+    (0 + angst_dif + aversion_scale_dif + enth_scale_dif | follower_dummy) + 
+    female_dummy, 
+              data = filter(befragung_per_candidate, !name == "herrmann"),
+              family=cumulative("logit"),
+              control = list(adapt_delta = 0.999, max_treedepth = 15),
+                  iter = 6000,
+             file = paste0(data_paper3_gles, "symp_brm_post_pos5"))
+
+summary(symp_brm_post_pos5)
+
+prior_summary(symp_brm_post_pos5)
+
+rm(symp_brm_post_pos5)
+
+# # estimate the model from scratch if you wish
+# symp_brm_post_pos_new_estimation <- brm(symp_post_positive ~ (1|symp_pre_positive + age_decades + a145 + match_id) + (0 + angst_dif + aversion_scale_dif + enth_scale_dif | follower_dummy) + female_dummy, 
+#               data = filter(befragung_per_candidate, !name == "herrmann"),
+#               family=cumulative("logit"),
+#               control = list(adapt_delta = 0.999, max_treedepth = 15),
+#                   iter = 6000,
+#              file = paste0(data_paper3_gles, "symp_brm_post_pos5_new_estimation"))
+```
+
+# Model 4.2: Merkel
+```{r}
+# loading the object
+symp_brm_post_pos_merkel <- brm(
+  symp_post_positive ~ 
+    (1|symp_pre_positive + age_decades + a145 + match_id) + 
+    (0 + angst_dif + aversion_scale_dif + enth_scale_dif | follower_dummy) + 
+    female_dummy, 
+              data = filter(befragung_per_candidate, name == "merkel"),
+              family=cumulative("logit"),
+              control = list(adapt_delta = 0.999, max_treedepth = 15),
+                  iter = 6000,
+             file = paste0(data_paper3_gles, "symp_brm_post_pos_merkel"))
+
+summary(symp_brm_post_pos_merkel)
+
+prior_summary(symp_brm_post_pos_merkel)
+
+rm(symp_brm_post_pos_merkel)
+```
+
+# Model 4.3: Schulz
+```{r}
+symp_brm_post_pos_schulz <- brm(
+  symp_post_positive ~ 
+    (1|symp_pre_positive + age_decades + a145 + match_id) + 
+    (0 + angst_dif + aversion_scale_dif + enth_scale_dif | follower_dummy) + 
+    female_dummy, 
+              data = filter(befragung_per_candidate, name == "schulz"),
+              family=cumulative("logit"),
+              control = list(adapt_delta = 0.999, max_treedepth = 15),
+                  iter = 6000,
+             file = paste0(data_paper3_gles, "symp_brm_post_pos_schulz"))
+
+summary(symp_brm_post_pos_schulz)
+
+prior_summary(symp_brm_post_pos_schulz)
+
+rm(symp_brm_post_pos_schulz)
+```
+
+# Average Fear and Anger among Merkel & Schulz Partisans
+
+```{r}
+# Merkel Partisans, who are more angry -> take negative sides and fear
+angry_merkel <- befragung_per_candidate %>%
+  filter(name == "merkel" & follower_dummy == 1 & aversion_scale_dif>0) %>%
+  select(schlechte_seiten_post, angst_dif)
+
+# Merkel Partisans, who are less or same angry -> take negative sides and fear
+non_angry_merkel <- befragung_per_candidate %>%
+  filter(name == "merkel" & follower_dummy == 1 & aversion_scale_dif<=0) %>%
+  select(schlechte_seiten_post, angst_dif)
+
+# t-test
+t.test(angry_merkel$angst_dif, non_angry_merkel$angst_dif, alternative = "g")
+
+# Schulz Partisans, who are more angry -> take negative sides and fear
+angry_schulz <- befragung_per_candidate %>%
+  filter(name == "schulz" & follower_dummy == 1 & aversion_scale_dif>0) %>%
+  select(schlechte_seiten_post, gute_seiten_post, angst_dif)
+
+# Schulz Partisans, who are less or same angry -> take negative sides and fear
+non_angry_schulz <- befragung_per_candidate %>%
+  filter(name == "schulz" & follower_dummy == 1 & aversion_scale_dif<=0) %>%
+  select(schlechte_seiten_post, gute_seiten_post, angst_dif)
+
+# t-test
+t.test(angry_schulz$angst_dif, non_angry_schulz$angst_dif, alternative = "g")
+```
+
+
+## Print Negative Sides Angry Merkel Follower
+```{r}
+angry_merkel$schlechte_seiten_post
+```
+
+## Negative Sides Angry Schulz Follower
+```{r}
+angry_schulz$schlechte_seiten_post
+```
