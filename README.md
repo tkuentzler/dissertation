@@ -5,4 +5,6 @@ Here, you find replication files for my dissertation (find the publication here 
 
 The replication files are organized by chapter, each chapter entils a folder for the data and a folder for the code. In the code-folder you can find the executable R-code. In case you wish to look up a specific table or just skim through the code without having to run it fully, you there are also markdown-files with code and output as a PDF.
 
-Note on Chapter 3: The model-files themselves are too large to share, here. If you are interested, drop me a message and I'll happily share them with you.
+Notes on Chapter 3: 
+* You can also find the zTree programms containing the experiment as conduceted in the LakeLab in Konstanz. The questionnaire is in fact empty, since the it was included in the treatment-programm to allow participants to complete the experiment on their own time.
+* The model-files themselves are too large to share, here. If you are interested, drop me a message and I'll happily share them with you.
