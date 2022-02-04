@@ -1,0 +1,1713 @@
+---
+title: "Replication File Chapter 2"
+author: "Theresa Küntzler"
+date: "23 11 2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Packages and Folders
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(caret)
+library(purrr)
+library(ggplot2)
+library(tidyr)
+library(pROC)
+library(plotROC)
+
+data <- "../data/"
+
+# for plotting
+my_lightgreen <- "#74c476"
+my_darkgreen <- "#31a354"
+my_lightblue <- "#a6cee3"
+my_darkblue <- "#1f78b4"
+```
+
+# Compare Prototypical Data to Azure
+```{r}
+load(file = paste0(data, "labdata_azure_emo_max.Rda"))
+
+# extract those with undetected faces: 0: 0% undetected)
+labdata_azure_na <- filter(labdata_azure, is.na(emo_anger))
+rm(labdata_azure_na)
+
+# confusion matrix
+emo_order <- c("neutral", "happy", "angry", "disgust", 
+               "surprise", "sad", "fear")
+confmat <- confusionMatrix(data = 
+                             factor(as.factor(labdata_azure$emo_azure_max_char), 
+                                         levels = emo_order),
+                           reference = factor(labdata_azure$emotion, 
+                                              levels = emo_order),
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+rm(confmat)
+
+# confusions as table
+emo_order <- c("neutral", "happy", "angry", "disgust", "surprise", "sad", "fear")
+
+## Prop Table
+my.prop.tab <- prop.table(table(factor(labdata_azure$emotion, 
+                                       levels = emo_order),
+                                factor(as.factor(labdata_azure$emo_azure_max_char), 
+                                       levels = emo_order)), margin = 1)
+my.prop.tab[is.na(my.prop.tab)] <- 0
+my.prop.tab
+
+rm(labdata_azure, my.prop.tab, emo_order)
+```
+
+
+# Compare Prototypical Data to Face++
+```{r}
+load(file = paste0(data, "labdata_facepp_emo_max.Rda"))
+
+labdata_facepp_na <- filter(labdata_facepp, is.na(emo_anger))
+rm(labdata_facepp_na)
+
+# confusion matrix
+emo_names_fpp <- c("angry", "disgust", "fear", "happy", "neutral", "sad", 
+                   "surprise")
+
+confmat <- confusionMatrix(data = 
+                             factor(as.factor(labdata_facepp$emo_fpp_max_char), 
+                                         levels = emo_names_fpp),
+                           reference = factor(labdata_facepp$emotion, 
+                                              levels = emo_names_fpp), 
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+rm(confmat)
+
+# confusions as table
+emo_order_fpp <- c("neutral", "happy", "angry", "disgust", "surprise", "sad", 
+                   "fear")
+
+## Prop Table
+my.prop.tab <- prop.table(table(factor(labdata_facepp$emotion, 
+                                       levels = emo_order_fpp),
+                                factor(as.factor(labdata_facepp$emo_fpp_max_char), 
+                                       levels = emo_order_fpp)), margin = 1)
+my.prop.tab[is.na(my.prop.tab)] <- 0
+my.prop.tab
+
+rm(labdata_facepp, my.prop.tab, emo_names_fpp)
+```
+
+
+# Compare Prototypical Data to FaceReader
+```{r}
+load(file = paste0(data, "labdata_fr.Rda"))
+
+# extract those with undetected faces: 2
+labdata_fr_na <- filter(labdata_fr, is.na(Angry))
+table(labdata_fr_na$emotion)
+rm(labdata_fr_na)
+
+# per category
+# angry
+1/178*100
+# disgust
+1/178*100
+
+# images with quality below 0.7
+labdata_qual_sm_7 <- filter(labdata_fr, Quality <0.7)
+table(labdata_qual_sm_7$emotion)
+
+## all dropout per category (na + below 0.7)
+# angry
+2/178*100
+# digust
+2/178*100
+# fear
+2/178*100
+# neutral
+1/178*100
+# surprise
+4/178*100
+
+rm(labdata_qual_sm_7)
+
+# filter quality above 0.7
+labdata_fr <- filter(labdata_fr, Quality>0.7)
+
+# confusion matrix
+emo_order_fpp <- c("neutral", "happy", "angry", "disgust", "surprise", "sad", 
+                   "fear")
+
+confmat <- confusionMatrix(data = factor(as.factor(labdata_fr$emo_fr_max_char), 
+                                         levels = emo_order_fpp),
+                           reference = factor(labdata_fr$emotion, 
+                                              levels = emo_order_fpp),
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+rm(confmat)
+
+# confusions as table
+
+## Prop Table
+my.prop.tab <- prop.table(table(factor(labdata_fr$emotion, 
+                                       levels = emo_order_fpp),
+                                factor(as.factor(labdata_fr$emo_fr_max_char), 
+                                       levels = emo_order_fpp)), margin = 1)
+my.prop.tab[is.na(my.prop.tab)] <- 0
+my.prop.tab
+
+rm(labdata_fr, my.prop.tab)
+```
+
+
+# Compare Naturalistic Data to Azure
+```{r}
+load(file = paste0(data, "sfew_azure_emo_max.Rda"))
+
+# extract those with undetected faces: 282 undetected)
+sfew_azure_na <- filter(sfew_azure, is.na(emo_anger))
+1- nrow(sfew_azure_na)/1387
+table(sfew_azure_na$emotion)/1387*100
+
+# drop out shares
+table(sfew_azure_na$emotion)
+# drop out shares
+table(sfew_azure_na$emotion)
+rm(sfew_azure_na)
+# % based on amount in category
+# anger
+64/254
+# disgust
+21/88
+# fear
+38/143
+# happy
+30/270
+# neutral
+40/236
+#sad
+62/245
+# surprise
+27/151
+
+# Confusion Matrix
+emo_order <- c("neutral", "happy", "angry", "disgust", "surprise", "sad", "fear")
+
+confmat <- confusionMatrix(data = 
+                             factor(as.factor(sfew_azure$emo_azure_max_char), 
+                                         levels = emo_order),
+                          reference = 
+                            factor(sfew_azure$emotion, levels = emo_order),
+                          mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+rm(confmat)
+
+# confusions as table
+## Prop Table
+my.prop.tab <- prop.table(table(factor(sfew_azure$emotion, levels = emo_order), 
+                factor(as.factor(sfew_azure$emo_azure_max_char), 
+                       levels = emo_order)), 
+                margin = 1)
+my.prop.tab[is.na(my.prop.tab)] <- 0
+my.prop.tab
+
+rm(sfew_azure, my.prop.tab)
+```
+
+
+# Compare Naturalistic Data to Face++
+```{r}
+load(file = paste0(data, "sfew_facepp_emo_max.Rda"))
+
+# extract those with undetected faces
+sfew_facepp_na <- filter(sfew_facepp, is.na(emo_anger))
+1- (nrow(sfew_facepp_na)/nrow(sfew_facepp))*100
+table(sfew_facepp_na$emotion)/1387*100
+
+# drop out shares
+table(sfew_facepp_na$emotion)
+rm(sfew_facepp_na)
+# % based on amount in category
+# anger
+1/254
+# disgust
+1/88
+# fear
+1/143
+# happy
+2/270
+# neutral
+0/236
+#sad
+2/245
+# surprise
+0/151
+
+# confusion matrix
+confmat <- confusionMatrix(data = factor(as.factor(sfew_facepp$emo_fpp_max_char), 
+                                         levels = levels(sfew_facepp$emotion)),
+                          reference = sfew_facepp$emotion,
+                          mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+rm(confmat)
+
+# confusions as table
+emo_order_fpp <- c("neutral", "happy", "angry", "disgust", "surprise", 
+                   "sad", "fear")
+
+## Prop Table
+my.prop.tab <- prop.table(table(factor(sfew_facepp$emotion, 
+                                       levels = emo_order_fpp), 
+                factor(as.factor(sfew_facepp$emo_fpp_max_char), 
+                       levels = emo_order_fpp)), 
+                margin = 1)
+my.prop.tab[is.na(my.prop.tab)] <- 0
+my.prop.tab
+
+rm(sfew_facepp, my.prop.tab, emo_order_fpp)
+```
+
+# Compare Naturalistic Data to FaceReader
+```{r}
+load(file = paste0(data, "sfew_fr.Rda"))
+
+# extract those with undetected faces: 750
+sfew_fr_na <- filter(sfew_fr, is.na(Angry))
+# % detected face
+1- length(sfew_fr_na$filename)/length(sfew_fr$filename)
+nrow(sfew_fr_na)/nrow(sfew_fr)/1387
+table(sfew_fr_na$emotion)
+
+# quality too low
+sfew_qual_sm_7 <- filter(sfew_fr, Quality <0.7)
+nrow(sfew_qual_sm_7)/nrow(sfew_fr)
+table(sfew_qual_sm_7$emotion)/1387
+table(sfew_qual_sm_7$emotion)
+
+# sum quality and undetected
+# % based on amount in category
+# anger
+(52+143)/254 * 100
+# disgust
+(13+48)/88 * 100
+# fear
+(28+85)/143 * 100
+# happy
+(54+135)/270 * 100
+# neutral
+(48+126)/236 * 100
+#sad
+(48+136)/245 * 100
+# surprise
+(36+77)/151 * 100
+
+rm(sfew_fr_na, sfew_qual_sm_7)
+
+# keep those with qual >= .7 for the analysis
+sfew_fr <- filter(sfew_fr, Quality >=0.7)
+
+# confusion matrix
+confmat <- confusionMatrix(data = factor(as.factor(sfew_fr$emo_fr_max_char), 
+                                         levels = levels(sfew_fr$emotion)),
+                           reference = sfew_fr$emotion, 
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+rm(confmat)
+
+rm(sfew_fr)
+```
+
+# ROC Curve Analysis
+
+## Prototypical Data
+If you wish to replicate the full procedure mark the box with `eval = TRUE' to do the following to: 
+1) Create long data frames from the wide ones 
+2) Create roc-objects from the long dataframe
+3) run the tests
+Note, the tests are bootstrapped and therefore stochastic.
+
+You can also jump to loading the test-obejcts reported in the Dissertation
+```{r eval=FALSE}
+# Prototypical Data Azure
+load(file = paste0(data, "labdata_azure_emo_max.Rda"))
+
+labdata_azure_long <- labdata_azure %>%
+  select(fullpath, emo_anger, emo_disgust, emo_fear, emo_hapiness, emo_neutral, 
+         emo_sadness, emo_surprise, emotion) %>% # select needed variables
+  #all except those variables named are observations for long format
+  pivot_longer(-c(fullpath, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "emo_anger" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "emo_disgust" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "emo_fear" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "emo_hapiness" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "emo_neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "emo_sadness" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "emo_surprise" ~ 1,
+                              TRUE ~ 0))
+rm(labdata_azure)
+
+# Prototypical Data Face++
+load(file = paste0(data, "labdata_facepp_emo_max.Rda"))
+
+labdata_facepp_long <- labdata_facepp %>%
+  select(fullpath, emo_anger, emo_disgust, emo_fear, emo_hapiness, emo_neutral, 
+         emo_sadness, emo_surprise, emotion) %>% # select needed variables
+  #all except those variables named are observations for long format
+  pivot_longer(-c(fullpath, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "emo_anger" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "emo_disgust" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "emo_fear" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "emo_hapiness" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "emo_neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "emo_sadness" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "emo_surprise" ~ 1,
+                              TRUE ~ 0))
+
+rm(labdata_facepp)
+
+# Prototypical Data FaceReader
+load(file = paste0(data, "labdata_fr.Rda"))
+
+labdata_fr_long <- labdata_fr %>%
+  select(Filename2, emotion, Neutral, Happy, Sad, Angry, Surprised, 
+         Scared, Disgusted) %>% # select needed variables
+  #all except those variables named are observations for long format
+  pivot_longer(-c(Filename2, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "Angry" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "Disgusted" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "Scared" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "Happy" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "Neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "Sad" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "Surprised" ~ 1,
+                              TRUE ~ 0))
+
+
+rm(labdata_fr)
+
+# create roc objects
+labdata_facepp_roc <- roc(response = labdata_facepp_long$true_emo,
+                          predictor = labdata_facepp_long$prediction_prob)
+
+labdata_azure_roc <- roc(response = labdata_azure_long$true_emo,
+                         predictor = labdata_azure_long$prediction_prob)
+
+labdata_fr_roc <- roc(response = labdata_fr_long$true_emo,
+                      predictor = labdata_fr_long$prediction_prob)
+
+# run the tests
+
+roc_test_lab_facepp_azure <- roc.test(roc1 = labdata_facepp_roc,
+                                      roc2 = labdata_azure_roc,
+                                      method = "bootstrap")
+
+roc_test_lab_facepp_fr <- roc.test(roc1 = labdata_facepp_roc,
+                                   roc2 = labdata_fr_roc,
+                                   method = "bootstrap")
+
+roc_test_lab_fr_azure <- roc.test(roc1 = labdata_fr_roc,
+                                  roc2 = labdata_azure_roc,
+                                  method = "bootstrap")
+```
+
+### Loading the test-objects reported in the Dissertation
+```{r}
+# load the test objects
+load(file = paste0(data, "roc_test_lab_facepp_azure.Rda")) # p-value = 0.001253
+load(file = paste0(data, "roc_test_lab_facepp_fr.Rda")) # p-value < 2.2e-16
+load(file = paste0(data, "roc_test_lab_fr_azure.Rda")) # p-value < 2.2e-16
+
+# inspect them
+roc_test_lab_facepp_azure
+roc_test_lab_facepp_fr
+roc_test_lab_fr_azure
+
+rm(roc_test_lab_facepp_azure, roc_test_lab_facepp_fr, roc_test_lab_fr_azure)
+```
+
+## Naturalistic Data
+
+If you wish to replicate the full procedure mark the box with `eval = TRUE' to do the following to: 
+1) Create long data frames from the wide ones 
+2) Create roc-objects from the long dataframe
+3) run the tests
+Note, the tests are bootstrapped and therefore stochastic.
+
+You can also jump to loading the test-objects reported in the Dissertation
+```{r eval = FALSE}
+# Naturalistic Data Azure
+load(file = paste0(data, "sfew_azure_emo_max.Rda"))
+
+sfew_azure_long <- sfew_azure %>%
+  select(fullpath, emo_anger, emo_disgust, emo_fear, emo_hapiness, emo_neutral, 
+         emo_sadness, emo_surprise, emotion) %>% # select needed variables
+  #all except those variables named are observations for long format
+  pivot_longer(-c(fullpath, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "emo_anger" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "emo_disgust" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "emo_fear" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "emo_hapiness" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "emo_neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "emo_sadness" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "emo_surprise" ~ 1,
+                              TRUE ~ 0))
+
+rm(sfew_azure)
+
+# Naturalistic Data Face++
+load(file = paste0(data, "sfew_facepp_emo_max.Rda"))
+
+sfew_facepp_long <- sfew_facepp %>%
+  select(filepath, emo_anger, emo_disgust, emo_fear, emo_hapiness, emo_neutral, 
+         emo_sadness, emo_surprise, emotion) %>% # select needed variables
+  #all except those variables named are observations for long format
+  pivot_longer(-c(filepath, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "emo_anger" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "emo_disgust" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "emo_fear" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "emo_hapiness" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "emo_neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "emo_sadness" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "emo_surprise" ~ 1,
+                              TRUE ~ 0))
+
+rm(sfew_facepp)
+
+# Naturalistic Data FaceReader
+load(file = paste0(data, "sfew_fr.Rda"))
+
+sfew_fr_long <- sfew_fr %>%
+  select(Filename2, emotion, Neutral, Happy, Sad, Angry, Surprised, Scared, 
+         Disgusted) %>% # select needed variables
+  #all except those variables named are observations for long format
+  pivot_longer(-c(Filename2, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "Angry" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "Disgusted" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "Scared" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "Happy" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "Neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "Sad" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "Surprised" ~ 1,
+                              TRUE ~ 0))
+
+rm(sfew_fr)
+
+
+# create ROC Objects
+sfew_facepp_roc <- roc(response = sfew_facepp_long$true_emo,
+                       predictor = sfew_facepp_long$prediction_prob)
+
+sfew_azure_roc <- roc(response = sfew_azure_long$true_emo,
+                      predictor = sfew_azure_long$prediction_prob)
+
+sfew_fr_roc <- roc(response = sfew_fr_long$true_emo,
+                  predictor = sfew_fr_long$prediction_prob)
+
+# run the tests
+roc_test_sfew_facepp_azure <- roc.test(roc1 = sfew_facepp_roc,
+                                       roc2 = sfew_azure_roc,
+                                       method = "bootstrap")
+
+roc_test_sfew_facepp_fr <- roc.test(roc1 = sfew_facepp_roc,
+                                    roc2 = sfew_fr_roc,
+                                    method = "bootstrap")
+
+roc_test_sfew_fr_azure <- roc.test(roc1 = sfew_fr_roc,
+                                   roc2 = sfew_azure_roc,
+                                   method = "bootstrap")
+
+```
+
+### Loading the test-objects reported in the Dissertation
+```{r}
+# load the tests
+load(file = paste0(data, "roc_test_sfew_facepp_azure.Rda")) 
+load(file = paste0(data, "roc_test_sfew_facepp_fr.Rda")) 
+load(file = paste0(data, "roc_test_sfew_fr_azure.Rda")) 
+
+roc_test_sfew_facepp_azure
+roc_test_sfew_facepp_fr
+roc_test_sfew_fr_azure
+
+rm(roc_test_sfew_facepp_azure, roc_test_sfew_facepp_fr, roc_test_sfew_fr_azure)
+```
+
+# Chi-Square Tests for Accuracies
+## Prototypical Data
+```{r}
+# Azure
+load(file = paste0(data, "labdata_azure_emo_max.Rda"))
+labdata_azure_face_found <- subset(labdata_azure, !is.na(emo_neutral))
+# sum of correct images
+count_labdata_azure <- sum(labdata_azure_face_found$emo_azure_max_char ==
+                             labdata_azure_face_found$emotion)
+
+# Facepp
+load(file = paste0(data, "labdata_facepp_emo_max.Rda"))
+labdata_facepp_face_found <- subset(labdata_facepp, !is.na(emo_neutral))
+count_labdata_facepp <- sum(labdata_facepp_face_found$emo_fpp_max_char ==
+                              labdata_facepp_face_found$emotion)
+
+# FaceReader
+load(file = paste0(data, "labdata_fr.Rda"))
+labdata_fr <- filter(labdata_fr, Quality>0.7)
+labdata_fr_face_found <- subset(labdata_fr, !is.na(Neutral))
+# sum of correct images
+count_labdata_fr <- sum(labdata_fr_face_found$emo_fr_max_char == 
+                          labdata_fr_face_found$emotion)
+
+prop.test(x = c(count_labdata_facepp, count_labdata_azure),
+          n = c(nrow(labdata_facepp_face_found), nrow(labdata_azure_face_found)))
+
+prop.test(x = c(count_labdata_facepp, count_labdata_fr),
+          n = c(nrow(labdata_facepp_face_found), nrow(labdata_fr_face_found)))
+
+prop.test(x = c(count_labdata_fr, count_labdata_azure),
+          n = c(nrow(labdata_fr_face_found), nrow(labdata_azure_face_found)))
+
+rm(labdata_azure, labdata_azure_face_found, labdata_facepp, 
+   labdata_facepp_face_found, labdata_fr, labdata_fr_face_found, 
+   count_labdata_fr, count_labdata_facepp, count_labdata_azure)
+```
+
+## Naturalistic Data
+```{r}
+# Azure
+load(file = paste0(data, "sfew_azure_emo_max.Rda"))
+sfew_azure_face_found <- subset(sfew_azure, !is.na(emo_neutral))
+# sum of correct images
+count_sfew_azure <- sum(sfew_azure_face_found$emo_azure_max_char == 
+                          sfew_azure_face_found$emotion)
+
+# Facepp
+load(file = paste0(data, "sfew_facepp_emo_max.Rda"))
+sfew_facepp_face_found <- subset(sfew_facepp, !is.na(emo_neutral))
+# sum of correct images
+count_sfew_facepp <- sum(sfew_facepp_face_found$emo_fpp_max_char == 
+                           sfew_facepp_face_found$emotion)
+
+# FaceReader
+load(file = paste0(data, "sfew_fr.Rda"))
+sfew_fr <- filter(sfew_fr, Quality>0.7)
+sfew_fr_face_found <- subset(sfew_fr, !is.na(Neutral))
+# sum of correct images
+count_sfew_fr <- sum(sfew_fr_face_found$emo_fr_max_char == 
+                       sfew_fr_face_found$emotion)
+
+
+prop.test(x = c(count_sfew_facepp, count_sfew_azure),
+          n = c(nrow(sfew_facepp_face_found), nrow(sfew_azure_face_found)))
+
+prop.test(x = c(count_sfew_facepp, count_sfew_fr),
+          n = c(nrow(sfew_facepp_face_found), nrow(sfew_fr_face_found)))
+
+prop.test(x = c(count_sfew_fr, count_sfew_azure),
+          n = c(nrow(sfew_fr_face_found), nrow(sfew_azure_face_found)))
+
+rm(sfew_azure, sfew_azure_face_found, sfew_facepp, sfew_facepp_face_found, 
+   sfew_fr, sfew_fr_face_found, count_sfew_fr, count_sfew_facepp, 
+   count_sfew_azure)
+```
+
+
+-------------------------------------------------------------------------------
+# Appendix: Subset of Commonly Recognized Images of Naturalistic Data
+
+## Sensitivity, Precision & Accuracy
+### Azure
+```{r}
+load(file = paste0(data, "sfew_azure_detected_all.Rda"))
+
+emo_order <- c("neutral", "happy", "angry", "disgust", "surprise", "sad", "fear")
+
+confmat <- confusionMatrix(data = 
+                             factor(
+                               as.factor(sfew_azure_detected_all$emo_azure_max_char), 
+                               levels = emo_order),
+                          reference = factor(sfew_azure_detected_all$emotion, 
+                                             levels = emo_order), 
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+
+rm(confmat, emo_order)
+```
+
+### Face++
+```{r}
+load(file = paste0(data, "sfew_facepp_detected_all.Rda"))
+
+emo_order <- c("neutral", "happy", "angry", "disgust", "surprise", "sad", "fear")
+
+confmat <- confusionMatrix(data = 
+                             factor(as.factor(
+                               sfew_facepp_detected_all$emo_fpp_max_char), 
+                               levels = levels(sfew_facepp_detected_all$emotion)),
+                          reference = sfew_facepp_detected_all$emotion, 
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+
+rm(confmat, emo_order)
+```
+
+### FaceReader
+```{r}
+load(file = paste0(data, "sfew_fr_detected_all.Rda"))
+
+confmat <- confusionMatrix(data = 
+                             factor(as.factor(sfew_fr_detected_all$emo_fr_max_char), 
+                                    levels = levels(sfew_fr_detected_all$emotion)),
+                           reference = sfew_fr_detected_all$emotion, 
+                           mode = "everything")
+
+confmat
+
+# average sensitivity and precision
+mean(data.frame(confmat$byClass)$Sensitivity)
+mean(data.frame(confmat$byClass)$Precision, na.rm = T)
+
+rm(confmat)
+```
+
+
+## Chi-Square Tests for Accuracies
+```{r}
+count_sfew_sample_azure <- sum(sfew_azure_detected_all$emo_azure_max_char ==
+                                 sfew_azure_detected_all$emotion)
+
+load(file = paste0(data, "sfew_facepp_detected_all.Rda"))
+count_sfew_sample_facepp <- sum(sfew_facepp_detected_all$emo_fpp_max_char ==
+                                  sfew_facepp_detected_all$emotion)
+
+load(file = paste0(data, "sfew_fr_detected_all.Rda"))
+count_sfew_sample_fr <- sum(sfew_fr_detected_all$emo_fr_max_char == 
+                              sfew_fr_detected_all$emotion)
+
+prop.test(x = c(count_sfew_sample_facepp, count_sfew_sample_azure),
+          n = c(nrow(sfew_facepp_detected_all), nrow(sfew_azure_detected_all)))
+
+prop.test(x = c(count_sfew_sample_facepp, count_sfew_sample_fr),
+          n = c(nrow(sfew_facepp_detected_all), nrow(sfew_fr_detected_all)))
+
+prop.test(x = c(count_sfew_sample_fr, count_sfew_sample_azure),
+          n = c(nrow(sfew_fr_detected_all), nrow(sfew_azure_detected_all)))
+
+rm(count_sfew_sample_fr, count_sfew_sample_facepp, count_sfew_sample_azure)
+```
+
+## ROC Analysis
+
+If you wish to replicate the full procedure mark the box with `eval = TRUE' to do the following to: 
+1) Create long data frames from the wide ones 
+2) Create roc-objects from the long dataframe
+3) run the tests
+Note, the tests are bootstrapped and therefore stochastic.
+
+You can also jump to loading the test-objects reported in the Dissertation
+```{r eval = FALSE}
+# Azure
+sfew_azure_detected_all_long <- sfew_azure_detected_all %>%
+  select(fullpath, emo_anger, emo_disgust, emo_fear, emo_hapiness, emo_neutral, 
+         emo_sadness, emo_surprise, emotion) %>% # select needed variables
+  pivot_longer(-c(fullpath, emotion),
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "emo_anger" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "emo_disgust" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "emo_fear" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "emo_hapiness" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "emo_neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "emo_sadness" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "emo_surprise" ~ 1,
+                              TRUE ~ 0))
+
+# Face++
+sfew_facepp_detected_all_long <- sfew_facepp_detected_all %>%
+  select(filepath, emo_anger, emo_disgust, emo_fear, emo_hapiness, emo_neutral, 
+         emo_sadness, emo_surprise, emotion) %>% # select needed variables
+  pivot_longer(-c(filepath, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & 
+                                emo_measure == "emo_anger" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "emo_disgust" ~ 1,
+                              emotion == "fear" & 
+                                emo_measure == "emo_fear" ~ 1,
+                              emotion == "happy" & 
+                                emo_measure == "emo_hapiness" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "emo_neutral" ~ 1,
+                              emotion == "sad" & 
+                                emo_measure == "emo_sadness" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "emo_surprise" ~ 1,
+                              TRUE ~ 0))
+
+# FaceReader
+sfew_fr_detected_all_long <- sfew_fr_detected_all %>%
+  select(Filename2, emotion, Neutral, Happy, Sad, Angry, Surprised, Scared, 
+         Disgusted) %>% # select needed variables
+  pivot_longer(-c(Filename2, emotion), 
+               names_to = "emo_measure",
+               values_to = "prediction_prob") %>%
+  # create a variable that indicates the true emotion for each images
+  mutate(true_emo = case_when(emotion == "angry" & emo_measure == "Angry" ~ 1,
+                              emotion == "disgust" & 
+                                emo_measure == "Disgusted" ~ 1,
+                              emotion == "fear" & emo_measure == "Scared" ~ 1,
+                              emotion == "happy" & emo_measure == "Happy" ~ 1,
+                              emotion == "neutral" & 
+                                emo_measure == "Neutral" ~ 1,
+                              emotion == "sad" & emo_measure == "Sad" ~ 1,
+                              emotion == "surprise" & 
+                                emo_measure == "Surprised" ~ 1,
+                              TRUE ~ 0))
+
+
+# create roc objects
+sfew_sample_facepp_roc <- roc(response = sfew_facepp_detected_all_long$true_emo,
+                       predictor = sfew_facepp_detected_all_long$prediction_prob)
+
+sfew_sample_azure_roc <- roc(response = sfew_azure_detected_all_long$true_emo,
+                      predictor = sfew_azure_detected_all_long$prediction_prob)
+
+sfew_sample_fr_roc <- roc(response = sfew_fr_detected_all_long$true_emo,
+                  predictor = sfew_fr_detected_all_long$prediction_prob)
+
+# run the tests
+#
+roc_test_sfew_sample_facepp_azure <- roc.test(roc1 = sfew_sample_facepp_roc,
+                                       roc2 = sfew_sample_azure_roc,
+                                       method = "bootstrap")
+
+#
+roc_test_sfew_sample_facepp_fr <- roc.test(roc1 = sfew_sample_facepp_roc,
+                                    roc2 = sfew_sample_fr_roc,
+                                    method = "bootstrap")
+
+#
+roc_test_sfew_sample_fr_azure <- roc.test(roc1 = sfew_sample_fr_roc,
+                                   roc2 = sfew_sample_azure_roc,
+                                   method = "bootstrap")
+rm(sfew_azure_detected_all_long, sfew_facepp_detected_all_long, 
+   sfew_fr_detected_all_long)
+
+rm(sfew_azure_detected_all, sfew_facepp_detected_all, sfew_fr_detected_all)
+```
+
+### Loading the test-objects reported in the Dissertation
+```{r}
+# load the tests
+load(file = paste0(data, "roc_test_sfew_sample_facepp_azure.Rda")) 
+load(file = paste0(data, "roc_test_sfew_sample_facepp_fr.Rda")) 
+load(file = paste0(data, "roc_test_sfew_sample_fr_azure.Rda")) 
+
+roc_test_sfew_sample_facepp_azure
+roc_test_sfew_sample_facepp_fr
+roc_test_sfew_sample_fr_azure
+
+rm(roc_test_sfew_sample_facepp_azure, roc_test_sfew_sample_facepp_fr, 
+   roc_test_sfew_sample_fr_azure)
+```
+
+
+# Appendix: Thresholds
+
+## Compare Prototypical Data to Azure
+```{r}
+load(file = paste0(data, "labdata_azure_emo_max.Rda"))
+
+# Tresholding
+tresholds_labdata_azure <- data.frame(threshold = seq(from = 0, to = 1, 
+                                                      by = 0.01),
+                                       accuracy = as.numeric(NA),
+                                       dropout = as.numeric(NA),
+                                       dropout_share = as.numeric(NA))
+
+my_accuracy <- function(threshold) {
+  overview_df <- labdata_azure[,c("emo_azure_max_char", "emo_azure_max_value", 
+                                  "emotion")] %>%
+  mutate(emo_azure_th = case_when(
+    emo_azure_max_value >= threshold ~ emo_azure_max_char,
+    TRUE ~ NA_character_
+  ))
+  accuracy <- sum(overview_df$emo_azure_th==overview_df$emotion, na.rm = T)/
+    sum(!is.na(overview_df$emo_azure_th))
+  return(accuracy)
+}
+
+my_dropout <- function(threshold) {
+  overview_df <- labdata_azure[,c("emo_azure_max_char", "emo_azure_max_value", 
+                                  "emotion")] %>%
+  mutate(emo_azure_th = case_when(
+    emo_azure_max_value >= threshold ~ emo_azure_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout <- sum(is.na(overview_df$emo_azure_th))
+  return(dropout)
+}
+
+my_dropout_share <- function(threshold) {
+  overview_df <- labdata_azure[,c("emo_azure_max_char", "emo_azure_max_value", 
+                                  "emotion")] %>%
+  mutate(emo_azure_th = case_when(
+    emo_azure_max_value >= threshold ~ emo_azure_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout_share <- sum(is.na(overview_df$emo_azure_th))/nrow(overview_df)
+  return(dropout_share)
+}
+
+tresholds_labdata_azure$accuracy <- unlist(map(.x = 
+                                                 tresholds_labdata_azure$threshold, 
+                                               .f = my_accuracy))
+tresholds_labdata_azure$dropout <- unlist(map(.x = 
+                                                tresholds_labdata_azure$threshold, 
+                                              .f = my_dropout))
+tresholds_labdata_azure$dropout_share <- unlist(
+  map(.x = tresholds_labdata_azure$threshold, 
+      .f = my_dropout_share))
+
+gather(tresholds_labdata_azure[c("threshold", "dropout_share", "accuracy")], 
+       "type", "value", 2:3) %>%
+ggplot(data = ., aes(x = threshold, y = value, group = type)) +
+  geom_line(aes(linetype = type, color = type)) +
+  scale_linetype_manual(name = "Value", values=c("solid", "dotdash"), 
+                        labels = c("Accuracy", "Dropout Share")) +
+  scale_color_manual(name = "Value", values = c(my_darkgreen, my_darkblue), 
+                     labels = c("Accuracy", "Dropout Share")) +
+  ylim(0,1) +
+  xlab("Threshold") +
+  ylab("") +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+
+rm(labdata_azure, tresholds_labdata_azure, my_accuracy, 
+   my_dropout, my_dropout_share)
+```
+
+## Compare Prototypical Data to Face++
+```{r}
+load(file = paste0(data, "labdata_facepp_emo_max.Rda"))
+
+tresholds_labdata_facepp <- data.frame(threshold = seq(from = 0, to = 1, 
+                                                       by = 0.01),
+                                       accuracy = as.numeric(NA),
+                                       dropout = as.numeric(NA),
+                                       dropout_share = as.numeric(NA))
+
+my_accuracy <- function(threshold) {
+  overview_df <- labdata_facepp[,c("emo_fpp_max_char", "emo_fpp_max_value", 
+                                   "emotion")] %>%
+  mutate(emo_fpp_th = case_when(
+    emo_fpp_max_value/100 >= threshold ~ emo_fpp_max_char,
+    TRUE ~ NA_character_
+  ))
+  accuracy <- sum(overview_df$emo_fpp_th==overview_df$emotion, na.rm = T)/
+    sum(!is.na(overview_df$emo_fpp_th))
+  return(accuracy)
+}
+
+my_dropout <- function(threshold) {
+  overview_df <- labdata_facepp[,c("emo_fpp_max_char", "emo_fpp_max_value", 
+                                   "emotion")] %>%
+  mutate(emo_fpp_th = case_when(
+    emo_fpp_max_value/100 >= threshold ~ emo_fpp_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout <- sum(is.na(overview_df$emo_fpp_th))
+  return(dropout)
+}
+
+my_dropout_share <- function(threshold) {
+  overview_df <- labdata_facepp[,c("emo_fpp_max_char", "emo_fpp_max_value", 
+                                   "emotion")] %>%
+  mutate(emo_fpp_th = case_when(
+    emo_fpp_max_value/100 >= threshold ~ emo_fpp_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout_share <- sum(is.na(overview_df$emo_fpp_th))/nrow(overview_df)
+  return(dropout_share)
+}
+
+tresholds_labdata_facepp$accuracy <- 
+  unlist(map(.x = tresholds_labdata_facepp$threshold, 
+                                                .f = my_accuracy))
+tresholds_labdata_facepp$dropout <- 
+  unlist(map(.x = tresholds_labdata_facepp$threshold, 
+                                               .f = my_dropout))
+tresholds_labdata_facepp$dropout_share <- 
+  unlist(map(.x = tresholds_labdata_facepp$threshold, 
+                                                     .f = my_dropout_share))
+
+gather(tresholds_labdata_facepp[c("threshold", "dropout_share", "accuracy")], 
+       "type", "value", 2:3) %>%
+ggplot(data = ., aes(x = threshold, y = value, group = type)) +
+  geom_line(aes(linetype = type, color = type)) +
+  scale_linetype_manual(name = "Value", values=c("solid", "dotdash"), 
+                        labels = c("Accuracy", "Dropout Share")) +
+  scale_color_manual(name = "Value", values = c(my_darkgreen, my_darkblue), 
+                     labels = c("Accuracy", "Dropout Share")) +
+  ylim(0,1) +
+  xlab("Threshold") +
+  ylab("") +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+
+rm(labdata_facepp, tresholds_labdata_facepp, my_accuracy, 
+   my_dropout, my_dropout_share)
+```
+
+## Compare Prototypical Data to FaceReader
+```{r}
+load(file = paste0(data, "labdata_fr.Rda"))
+
+tresholds_labdata_fr <- data.frame(threshold = seq(from = 0, to = 1, by = 0.01),
+                                       accuracy = as.numeric(NA),
+                                       dropout = as.numeric(NA),
+                                       dropout_share = as.numeric(NA))
+
+my_accuracy <- function(threshold) {
+  overview_df <- labdata_fr[,c("emo_fr_max_char", "emo_fr_max_value", 
+                               "emotion")] %>%
+  mutate(emo_fr_th = case_when(
+    emo_fr_max_value >= threshold ~ emo_fr_max_char,
+    TRUE ~ NA_integer_
+  ))
+  accuracy <- sum(as.character(overview_df$emo_fr_th) == 
+                    as.character(overview_df$emotion), na.rm = T)/
+    sum(!is.na(overview_df$emo_fr_th))
+  return(accuracy)
+}
+
+my_dropout <- function(threshold) {
+  overview_df <- labdata_fr[,c("emo_fr_max_char", "emo_fr_max_value", 
+                               "emotion")] %>%
+  mutate(emo_fr_th = case_when(
+    emo_fr_max_value >= threshold ~ emo_fr_max_char,
+    TRUE ~ NA_integer_
+  ))
+  dropout <- sum(is.na(overview_df$emo_fr_th))
+  return(dropout)
+}
+
+my_dropout_share <- function(threshold) {
+  overview_df <- labdata_fr[,c("emo_fr_max_char", "emo_fr_max_value", 
+                               "emotion")] %>%
+  mutate(emo_fr_th = case_when(
+    emo_fr_max_value >= threshold ~ emo_fr_max_char,
+    TRUE ~ NA_integer_
+  ))
+  dropout_share <- sum(is.na(overview_df$emo_fr_th))/nrow(overview_df)
+  return(dropout_share)
+}
+
+tresholds_labdata_fr$accuracy <- unlist(map(.x = tresholds_labdata_fr$threshold,
+                                            .f = my_accuracy))
+tresholds_labdata_fr$dropout <- unlist(map(.x = tresholds_labdata_fr$threshold, 
+                                           .f = my_dropout))
+tresholds_labdata_fr$dropout_share <- 
+  unlist(map(.x = tresholds_labdata_fr$threshold, 
+                                                 .f = my_dropout_share))
+
+gather(tresholds_labdata_fr[c("threshold", "dropout_share", "accuracy")], 
+       "type", "value", 2:3) %>%
+ggplot(data = ., aes(x = threshold, y = value, group = type)) +
+  geom_line(aes(linetype = type, color = type)) +
+  scale_linetype_manual(name = "Value", values=c("solid", "dotdash"), 
+                        labels = c("Accuracy", "Dropout Share")) +
+  scale_color_manual(name = "Value", values = c(my_darkgreen, my_darkblue), 
+                     labels = c("Accuracy", "Dropout Share")) +
+  ylim(0,1) +
+  xlab("Threshold") +
+  ylab("") +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+
+rm(labdata_fr, tresholds_labdata_fr, my_accuracy, 
+   my_dropout, my_dropout_share)
+```
+
+## Compare Naturalistic Data to Azure
+```{r}
+load(file = paste0(data, "sfew_azure_emo_max.Rda"))
+
+tresholds_sfew_azure <- data.frame(threshold = seq(from = 0, to = 1, by = 0.01),
+                                       accuracy = as.numeric(NA),
+                                       dropout = as.numeric(NA),
+                                       dropout_share = as.numeric(NA))
+
+my_accuracy <- function(threshold) {
+  overview_df <- sfew_azure[,c("emo_azure_max_char", "emo_azure_max_value", 
+                               "emotion")] %>%
+  mutate(emo_azure_th = case_when(
+    emo_azure_max_value >= threshold ~ emo_azure_max_char,
+    TRUE ~ NA_character_
+  ))
+  accuracy <- sum(overview_df$emo_azure_th==overview_df$emotion, na.rm = T)/
+    sum(!is.na(overview_df$emo_azure_th))
+  return(accuracy)
+}
+
+my_dropout <- function(threshold) {
+  overview_df <- sfew_azure[,c("emo_azure_max_char", "emo_azure_max_value", 
+                               "emotion")] %>%
+  mutate(emo_azure_th = case_when(
+    emo_azure_max_value >= threshold ~ emo_azure_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout <- sum(is.na(overview_df$emo_azure_th))
+  return(dropout)
+}
+
+my_dropout_share <- function(threshold) {
+  overview_df <- sfew_azure[,c("emo_azure_max_char", "emo_azure_max_value", 
+                               "emotion")] %>%
+  mutate(emo_azure_th = case_when(
+    emo_azure_max_value >= threshold ~ emo_azure_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout_share <- sum(is.na(overview_df$emo_azure_th))/nrow(overview_df)
+  return(dropout_share)
+}
+
+tresholds_sfew_azure$accuracy <- 
+  unlist(map(.x = tresholds_sfew_azure$threshold, .f = my_accuracy))
+tresholds_sfew_azure$dropout <- 
+  unlist(map(.x = tresholds_sfew_azure$threshold, .f = my_dropout))
+tresholds_sfew_azure$dropout_share <- 
+  unlist(map(.x = tresholds_sfew_azure$threshold, .f = my_dropout_share))
+
+gather(tresholds_sfew_azure[c("threshold", "dropout_share", "accuracy")], 
+       "type", "value", 2:3) %>%
+ggplot(data = ., aes(x = threshold, y = value, group = type)) +
+  geom_line(aes(linetype = type, color = type)) +
+  scale_linetype_manual(name = "Value", values=c("solid", "dotdash"), 
+                        labels = c("Accuracy", "Dropout Share")) +
+  scale_color_manual(name = "Value", values = c(my_darkgreen, my_darkblue), 
+                     labels = c("Accuracy", "Dropout Share")) +
+  ylim(0,1) +
+  xlab("Threshold") +
+  ylab("") +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+
+rm(sfew_azure, tresholds_sfew_azure, my_accuracy, 
+   my_dropout, my_dropout_share)
+```
+
+## Compare Naturalistic Data to Face++
+```{r}
+load(file = paste0(data, "sfew_facepp_emo_max.Rda"))
+
+tresholds_sfew_facepp <- data.frame(threshold = seq(from = 0, to = 1, by = 0.01),
+                                       accuracy = as.numeric(NA),
+                                       dropout = as.numeric(NA),
+                                       dropout_share = as.numeric(NA))
+
+my_accuracy <- function(threshold) {
+  overview_df <- sfew_facepp[,c("emo_fpp_max_char", "emo_fpp_max_value", 
+                                "emotion")] %>%
+  mutate(emo_fpp_th = case_when(
+    emo_fpp_max_value/100 >= threshold ~ emo_fpp_max_char,
+    TRUE ~ NA_character_
+  ))
+  accuracy <- sum(overview_df$emo_fpp_th==overview_df$emotion, na.rm = T)/
+    sum(!is.na(overview_df$emo_fpp_th))
+  return(accuracy)
+}
+
+my_dropout <- function(threshold) {
+  overview_df <- sfew_facepp[,c("emo_fpp_max_char", "emo_fpp_max_value", 
+                                "emotion")] %>%
+  mutate(emo_fpp_th = case_when(
+    emo_fpp_max_value/100 >= threshold ~ emo_fpp_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout <- sum(is.na(overview_df$emo_fpp_th))
+  return(dropout)
+}
+
+my_dropout_share <- function(threshold) {
+  overview_df <- sfew_facepp[,c("emo_fpp_max_char", "emo_fpp_max_value", 
+                                "emotion")] %>%
+  mutate(emo_fpp_th = case_when(
+    emo_fpp_max_value/100 >= threshold ~ emo_fpp_max_char,
+    TRUE ~ NA_character_
+  ))
+  dropout_share <- sum(is.na(overview_df$emo_fpp_th))/nrow(overview_df)
+  return(dropout_share)
+}
+
+tresholds_sfew_facepp$accuracy <- 
+  unlist(map(.x = tresholds_sfew_facepp$threshold, .f = my_accuracy))
+tresholds_sfew_facepp$dropout <- 
+  unlist(map(.x = tresholds_sfew_facepp$threshold, .f = my_dropout))
+tresholds_sfew_facepp$dropout_share <- 
+  unlist(map(.x = tresholds_sfew_facepp$threshold, .f = my_dropout_share))
+
+gather(tresholds_sfew_facepp[c("threshold", "dropout_share", "accuracy")], 
+       "type", "value", 2:3) %>%
+ggplot(data = ., aes(x = threshold, y = value, group = type)) +
+  geom_line(aes(linetype = type, color = type)) +
+  scale_linetype_manual(name = "Value", values=c("solid", "dotdash"), 
+                        labels = c("Accuracy", "Dropout Share")) +
+  scale_color_manual(name = "Value", values = c(my_darkgreen, my_darkblue), 
+                     labels = c("Accuracy", "Dropout Share")) +
+  ylim(0,1) +
+  xlab("Threshold") +
+  ylab("") +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+
+rm(sfew_facepp, tresholds_sfew_facepp, my_accuracy, 
+   my_dropout, my_dropout_share)
+```
+
+## Compare Naturalistic Data to FaceReader
+```{r}
+load(file = paste0(data, "sfew_fr.Rda"))
+
+# keep those with qual >= .7 for the analysis
+sfew_fr <- filter(sfew_fr, Quality >=0.7)
+
+tresholds_sfew_fr <- data.frame(threshold = seq(from = 0, to = 1, by = 0.01),
+                                       accuracy = as.numeric(NA),
+                                       dropout = as.numeric(NA),
+                                       dropout_share = as.numeric(NA))
+
+my_accuracy <- function(threshold) {
+  overview_df <- sfew_fr[,c("emo_fr_max_char", "emo_fr_max_value", 
+                            "emotion")] %>%
+  mutate(emo_fr_th = case_when(
+    emo_fr_max_value >= threshold ~ emo_fr_max_char,
+    TRUE ~ NA_integer_
+  ))
+  accuracy <- sum(overview_df$emo_fr_th==overview_df$emotion, na.rm = T)/
+    sum(!is.na(overview_df$emo_fr_th))
+  return(accuracy)
+}
+
+my_dropout <- function(threshold) {
+  overview_df <- sfew_fr[,c("emo_fr_max_char", "emo_fr_max_value", 
+                            "emotion")] %>%
+  mutate(emo_fr_th = case_when(
+    emo_fr_max_value >= threshold ~ emo_fr_max_char,
+    TRUE ~ NA_integer_
+  ))
+  dropout <- sum(is.na(overview_df$emo_fr_th))
+  return(dropout)
+}
+
+my_dropout_share <- function(threshold) {
+  overview_df <- sfew_fr[,c("emo_fr_max_char", "emo_fr_max_value", 
+                            "emotion")] %>%
+  mutate(emo_fr_th = case_when(
+    emo_fr_max_value >= threshold ~ emo_fr_max_char,
+    TRUE ~ NA_integer_
+  ))
+  dropout_share <- sum(is.na(overview_df$emo_fr_th))/nrow(overview_df)
+  return(dropout_share)
+}
+
+tresholds_sfew_fr$accuracy <- 
+  unlist(map(.x = tresholds_sfew_fr$threshold, .f = my_accuracy))
+tresholds_sfew_fr$dropout <- 
+  unlist(map(.x = tresholds_sfew_fr$threshold, .f = my_dropout))
+tresholds_sfew_fr$dropout_share <- 
+  unlist(map(.x = tresholds_sfew_fr$threshold, .f = my_dropout_share))
+
+gather(tresholds_sfew_fr[c("threshold", "dropout_share", "accuracy")], 
+       "type", "value", 2:3) %>%
+ggplot(data = ., aes(x = threshold, y = value, group = type)) +
+  geom_line(aes(linetype = type, color = type)) +
+  scale_linetype_manual(name = "Value", values=c("solid", "dotdash"), 
+                        labels = c("Accuracy", "Dropout Share")) +
+  scale_color_manual(name = "Value", values = c(my_darkgreen, my_darkblue), 
+                     labels = c("Accuracy", "Dropout Share")) +
+  ylim(0,1) +
+  xlab("Threshold") +
+  ylab("") +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))
+
+rm(sfew_fr, tresholds_sfew_fr, my_accuracy, 
+   my_dropout, my_dropout_share)
+
+```
+
+# Appendix: Shares on all images
+
+## Compare Prototypical Data to Azure
+```{r}
+load(file = paste0(data, "labdata_azure_emo_max.Rda"))
+
+## calculate share of correctly identified from all images
+table(labdata_azure$emo_azure_max_char)
+## 1) all images
+sum(labdata_azure$emo_azure_max_char == labdata_azure$emotion, na.rm = T)/1246
+round(sum(labdata_azure$emo_azure_max_char == 
+            labdata_azure$emotion, na.rm = T)/1246, digits = 2)
+## neutral
+sum(labdata_azure[labdata_azure$emotion == "neutral",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "neutral",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "neutral",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "neutral",]$emotion, 
+          na.rm = T)/178, digits = 2)
+## happy
+sum(labdata_azure[labdata_azure$emotion == "happy",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "happy",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "happy",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "happy",]$emotion, na.rm = T)
+      /178, 
+      digits = 2)
+## angry
+sum(labdata_azure[labdata_azure$emotion == "angry",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "angry",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "angry",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "angry",]$emotion, na.rm = T)/
+        178, 
+      digits = 2)
+## disgust
+sum(labdata_azure[labdata_azure$emotion == "disgust",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "disgust",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "disgust",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "disgust",]$emotion, na.rm = T)/
+        178, 
+      digits = 2)
+## surprise
+sum(labdata_azure[labdata_azure$emotion == "surprise",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "surprise",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "surprise",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "surprise",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## sad
+sum(labdata_azure[labdata_azure$emotion == "sad",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "sad",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "sad",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "sad",]$emotion, na.rm = T)/
+        178, 
+      digits = 2)
+## fear
+sum(labdata_azure[labdata_azure$emotion == "fear",]$emo_azure_max_char ==
+      labdata_azure[labdata_azure$emotion == "fear",]$emotion, na.rm = T)/178
+round(sum(labdata_azure[labdata_azure$emotion == "fear",]$emo_azure_max_char ==
+            labdata_azure[labdata_azure$emotion == "fear",]$emotion, na.rm = T)/
+        178, 
+      digits = 2)
+
+rm(labdata_azure, confmat)
+```
+
+
+## Compare Prototypical Data to Face++
+```{r}
+load(file = paste0(data, "labdata_facepp_emo_max.Rda"))
+## calculate share of correctly identified from all images
+table(labdata_facepp$emo_fpp_max_char)
+## 1) all images
+sum(labdata_facepp$emo_fpp_max_char == labdata_facepp$emotion, na.rm = T)/1246
+round(sum(labdata_facepp$emo_fpp_max_char == labdata_facepp$emotion, na.rm = T)/
+        1246, 
+      digits = 2)
+## neutral
+sum(labdata_facepp[labdata_facepp$emotion == "neutral",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "neutral",]$emotion, na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "neutral",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "neutral",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## happy
+sum(labdata_facepp[labdata_facepp$emotion == "happy",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "happy",]$emotion, na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "happy",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "happy",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## angry
+sum(labdata_facepp[labdata_facepp$emotion == "angry",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "angry",]$emotion, na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "angry",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "angry",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## disgust
+sum(labdata_facepp[labdata_facepp$emotion == "disgust",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "disgust",]$emotion, na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "disgust",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "disgust",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## surprise
+sum(labdata_facepp[labdata_facepp$emotion == "surprise",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "surprise",]$emotion, 
+    na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "surprise",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "surprise",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## sad
+sum(labdata_facepp[labdata_facepp$emotion == "sad",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "sad",]$emotion, na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "sad",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "sad",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## fear
+sum(labdata_facepp[labdata_facepp$emotion == "fear",]$emo_fpp_max_char ==
+      labdata_facepp[labdata_facepp$emotion == "fear",]$emotion, na.rm = T)/178
+round(sum(labdata_facepp[labdata_facepp$emotion == "fear",]$emo_fpp_max_char ==
+            labdata_facepp[labdata_facepp$emotion == "fear",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+
+rm(labdata_facepp)
+```
+
+## Compare Prototypical Data to FaceReader
+```{r}
+load(file = paste0(data, "labdata_fr.Rda"))
+
+## calculate share of correctly identified from all images
+table(labdata_fr$emo_fr_max_char)
+## 1) all images
+sum(as.character(labdata_fr$emo_fr_max_char) == labdata_fr$emotion, na.rm = T)/1246
+round(sum(as.character(labdata_fr$emo_fr_max_char) == labdata_fr$emotion, 
+          na.rm = T)/1246, digits = 2)
+## neutral
+sum(as.character(labdata_fr[labdata_fr$emotion == "neutral",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "neutral",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "neutral",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "neutral",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## happy
+sum(as.character(labdata_fr[labdata_fr$emotion == "happy",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "happy",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "happy",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "happy",]$emotion, na.rm = T)/178, 
+      digits = 2)
+## angry
+sum(as.character(labdata_fr[labdata_fr$emotion == "angry",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "angry",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "angry",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "angry",]$emotion, na.rm = T)/178, 
+      digits = 2)
+## disgust
+sum(as.character(labdata_fr[labdata_fr$emotion == "disgust",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "disgust",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "disgust",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "disgust",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## surprise
+sum(as.character(labdata_fr[labdata_fr$emotion == "surprise",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "surprise",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "surprise",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "surprise",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## sad
+sum(as.character(labdata_fr[labdata_fr$emotion == "sad",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "sad",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "sad",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "sad",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+## fear
+sum(as.character(labdata_fr[labdata_fr$emotion == "fear",]$emo_fr_max_char) ==
+      labdata_fr[labdata_fr$emotion == "fear",]$emotion, na.rm = T)/178
+round(sum(as.character(labdata_fr[labdata_fr$emotion == "fear",]$emo_fr_max_char) ==
+            labdata_fr[labdata_fr$emotion == "fear",]$emotion, 
+          na.rm = T)/178, 
+      digits = 2)
+
+rm(labdata_fr)
+```
+
+
+## Compare Naturalistic Data to Azure
+```{r}
+load(file = paste0(data, "sfew_azure_emo_max.Rda"))
+
+## calculate share of correctly identified from all images
+table(sfew_azure$emo_azure_max_char)
+## 1) all images
+round(sum(sfew_azure$emo_azure_max_char == sfew_azure$emotion, na.rm = T)/1387, 
+      digits = 2)
+## neutral
+round(sum(sfew_azure[sfew_azure$emotion == "neutral",]$emo_azure_max_char ==
+            sfew_azure[sfew_azure$emotion == "neutral",]$emotion, na.rm = T)/236, 
+      digits = 2)
+## happy
+sum(sfew_azure[sfew_azure$emotion == "happy",]$emo_azure_max_char ==
+      sfew_azure[sfew_azure$emotion == "happy",]$emotion, na.rm = T)/270
+round(sum(sfew_azure[sfew_azure$emotion == "happy",]$emo_azure_max_char ==
+            sfew_azure[sfew_azure$emotion == "happy",]$emotion, na.rm = T)/270, 
+      digits = 2)
+## angry
+sum(sfew_azure[sfew_azure$emotion == "angry",]$emo_azure_max_char ==
+      sfew_azure[sfew_azure$emotion == "angry",]$emotion, na.rm = T)/254
+round(sum(sfew_azure[sfew_azure$emotion == "angry",]$emo_azure_max_char ==
+            sfew_azure[sfew_azure$emotion == "angry",]$emotion, na.rm = T)/254, 
+      digits = 2)
+## disgust
+sum(sfew_azure[sfew_azure$emotion == "disgust",]$emo_azure_max_char ==
+      sfew_azure[sfew_azure$emotion == "disgust",]$emotion, na.rm = T)/88
+round(sum(sfew_azure[sfew_azure$emotion == "disgust",]$emo_azure_max_char ==
+            
+            sfew_azure[sfew_azure$emotion == "disgust",]$emotion, na.rm = T)/88, 
+      digits = 2)
+## surprise
+sum(sfew_azure[sfew_azure$emotion == "surprise",]$emo_azure_max_char ==
+      sfew_azure[sfew_azure$emotion == "surprise",]$emotion, na.rm = T)/151
+round(sum(sfew_azure[sfew_azure$emotion == "surprise",]$emo_azure_max_char ==
+            sfew_azure[sfew_azure$emotion == "surprise",]$emotion, 
+          na.rm = T)/151, 
+      digits = 2)
+## sad
+sum(sfew_azure[sfew_azure$emotion == "sad",]$emo_azure_max_char ==
+      sfew_azure[sfew_azure$emotion == "sad",]$emotion, na.rm = T)/245
+round(sum(sfew_azure[sfew_azure$emotion == "sad",]$emo_azure_max_char ==
+            sfew_azure[sfew_azure$emotion == "sad",]$emotion, na.rm = T)/245, 
+      digits = 2)
+## fear
+sum(sfew_azure[sfew_azure$emotion == "fear",]$emo_azure_max_char ==
+      sfew_azure[sfew_azure$emotion == "fear",]$emotion, na.rm = T)/143
+round(sum(sfew_azure[sfew_azure$emotion == "fear",]$emo_azure_max_char ==
+            sfew_azure[sfew_azure$emotion == "fear",]$emotion, na.rm = T)/143, 
+      digits = 2)
+
+rm(sfew_azure)
+```
+
+
+## Compare Naturalistic Data to Face++
+```{r}
+load(file = paste0(data, "sfew_facepp_emo_max.Rda"))
+
+## calculate share of correctly identified from all images
+table(sfew_facepp$emo_fpp_max_char)
+## 1) all images
+sum(sfew_facepp$emo_fpp_max_char == sfew_facepp$emotion, na.rm = T)/1387
+round(sum(sfew_facepp$emo_fpp_max_char == sfew_facepp$emotion, na.rm = T)/1387, 
+      digits = 2)
+## neutral
+sum(sfew_facepp[sfew_facepp$emotion == "neutral",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "neutral",]$emotion, na.rm = T)/236
+round(sum(sfew_facepp[sfew_facepp$emotion == "neutral",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "neutral",]$emotion, 
+          na.rm = T)/236, 
+      digits = 2)
+## happy
+sum(sfew_facepp[sfew_facepp$emotion == "happy",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "happy",]$emotion, na.rm = T)/270
+round(sum(sfew_facepp[sfew_facepp$emotion == "happy",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "happy",]$emotion, 
+          na.rm = T)/270, 
+      digits = 2)
+## angry
+sum(sfew_facepp[sfew_facepp$emotion == "angry",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "angry",]$emotion, na.rm = T)/254
+round(sum(sfew_facepp[sfew_facepp$emotion == "angry",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "angry",]$emotion, 
+          na.rm = T)/254, 
+      digits = 2)
+## disgust
+sum(sfew_facepp[sfew_facepp$emotion == "disgust",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "disgust",]$emotion, na.rm = T)/88
+round(sum(sfew_facepp[sfew_facepp$emotion == "disgust",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "disgust",]$emotion, 
+          na.rm = T)/88, 
+      digits = 2)
+## surprise
+sum(sfew_facepp[sfew_facepp$emotion == "surprise",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "surprise",]$emotion, na.rm = T)/151
+round(sum(sfew_facepp[sfew_facepp$emotion == "surprise",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "surprise",]$emotion, 
+          na.rm = T)/151, 
+      digits = 2)
+## sad
+sum(sfew_facepp[sfew_facepp$emotion == "sad",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "sad",]$emotion, na.rm = T)/245
+round(sum(sfew_facepp[sfew_facepp$emotion == "sad",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "sad",]$emotion, 
+          na.rm = T)/245, 
+      digits = 2)
+## fear
+sum(sfew_facepp[sfew_facepp$emotion == "fear",]$emo_fpp_max_char ==
+      sfew_facepp[sfew_facepp$emotion == "fear",]$emotion, na.rm = T)/143
+round(sum(sfew_facepp[sfew_facepp$emotion == "fear",]$emo_fpp_max_char ==
+            sfew_facepp[sfew_facepp$emotion == "fear",]$emotion, na.rm = T)/143, 
+      digits = 2)
+
+rm(sfew_facepp)
+```
+
+## Compare Naturalistic Data to FaceReader
+```{r}
+load(file = paste0(data, "sfew_fr.Rda"))
+
+# keep those with qual >= .7 for the analysis
+sfew_fr <- filter(sfew_fr, Quality >=0.7)
+
+## calculate share of correctly identified from all images
+table(sfew_fr$emo_fr_max_char)
+## 1) all images
+sum(sfew_fr$emo_fr_max_char == sfew_fr$emotion, na.rm = T)/1387
+round(sum(sfew_fr$emo_fr_max_char == sfew_fr$emotion, na.rm = T)/1387, 
+      digits = 2)
+## neutral
+sum(sfew_fr[sfew_fr$emotion == "neutral",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "neutral",]$emotion, na.rm = T)/236
+round(sum(sfew_fr[sfew_fr$emotion == "neutral",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "neutral",]$emotion, na.rm = T)/236, 
+      digits = 2)
+## happy
+sum(sfew_fr[sfew_fr$emotion == "happy",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "happy",]$emotion, na.rm = T)/270
+round(sum(sfew_fr[sfew_fr$emotion == "happy",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "happy",]$emotion, na.rm = T)/270, 
+      digits = 2)
+## angry
+sum(sfew_fr[sfew_fr$emotion == "angry",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "angry",]$emotion, na.rm = T)/254
+round(sum(sfew_fr[sfew_fr$emotion == "angry",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "angry",]$emotion, na.rm = T)/254, 
+      digits = 2)
+## disgust
+sum(sfew_fr[sfew_fr$emotion == "disgust",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "disgust",]$emotion, na.rm = T)/88
+round(sum(sfew_fr[sfew_fr$emotion == "disgust",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "disgust",]$emotion, na.rm = T)/88, 
+      digits = 2)
+## surprise
+sum(sfew_fr[sfew_fr$emotion == "surprise",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "surprise",]$emotion, na.rm = T)/151
+round(sum(sfew_fr[sfew_fr$emotion == "surprise",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "surprise",]$emotion, na.rm = T)/151, 
+      digits = 2)
+## sad
+sum(sfew_fr[sfew_fr$emotion == "sad",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "sad",]$emotion, na.rm = T)/245
+round(sum(sfew_fr[sfew_fr$emotion == "sad",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "sad",]$emotion, na.rm = T)/245, 
+      digits = 2)
+## fear
+sum(sfew_fr[sfew_fr$emotion == "fear",]$emo_fr_max_char == 
+      sfew_fr[sfew_fr$emotion == "fear",]$emotion, na.rm = T)/143
+round(sum(sfew_fr[sfew_fr$emotion == "fear",]$emo_fr_max_char == 
+            sfew_fr[sfew_fr$emotion == "fear",]$emotion, na.rm = T)/143, 
+      digits = 2)
+
+rm(sfew_fr)
+```
